@@ -41,7 +41,7 @@ Because results are posted as a `REQUEST_CHANGES` review, you can add the app as
 
 ## Install
 
-**[Install on GitHub](https://github.com/apps/dont-switch-my-sha/installations/new)**
+**[Install on GitHub](https://github.com/apps/don-t-switch-my-sha/installations/new)**
 
 The app requires these repository permissions:
 - **Contents:** Read (to access PR diffs)

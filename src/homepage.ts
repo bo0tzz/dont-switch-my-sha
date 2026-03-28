@@ -65,7 +65,7 @@ export function getHomepage(): string {
     <h1>Don&rsquo;t Switch my SHA</h1>
     <p class="tagline">A GitHub App that catches fork-based SHA bait-and-switch attacks in your Actions workflows.</p>
 
-    <a href="https://github.com/apps/dont-switch-my-sha/installations/new" class="install-btn">
+    <a href="https://github.com/apps/don-t-switch-my-sha/installations/new" class="install-btn">
       Install on GitHub
     </a>
 
@@ -105,7 +105,7 @@ export function getHomepage(): string {
       Clean PRs get no noise &mdash; the app only speaks up when something looks wrong.
     </p>
 
-    <a href="https://github.com/apps/dont-switch-my-sha/installations/new" class="install-btn">
+    <a href="https://github.com/apps/don-t-switch-my-sha/installations/new" class="install-btn">
       Install on GitHub
     </a>
 
