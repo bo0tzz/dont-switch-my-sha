@@ -13,6 +13,10 @@ export interface ChangedAction {
   line: number;
 }
 
+export function log(data: Record<string, unknown>) {
+  console.log(JSON.stringify(data));
+}
+
 export interface VerificationResult {
   action: ChangedAction;
   verified: boolean;

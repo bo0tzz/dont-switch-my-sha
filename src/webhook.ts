@@ -1,11 +1,7 @@
 import { verify } from '@octokit/webhooks-methods';
 import { createOctokit } from './github.js';
 import { handlePullRequest } from './handler.js';
-import type { Env } from './types.js';
-
-function log(data: Record<string, unknown>) {
-  console.log(JSON.stringify(data));
-}
+import { log, type Env } from './types.js';
 
 export async function handleWebhook(
   request: Request,
