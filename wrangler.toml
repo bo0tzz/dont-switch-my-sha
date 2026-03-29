@@ -6,3 +6,4 @@ compatibility_flags = ["nodejs_compat"]
 [observability]
 [observability.logs]
 enabled = true
+invocation_logs = false
