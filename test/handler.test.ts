@@ -112,8 +112,9 @@ describe('handlePullRequest', () => {
       existingReviews: [
         {
           id: 42,
-          user: { login: 'dont-switch-my-sha[bot]' },
+          user: { login: 'some-bot[bot]' },
           state: 'CHANGES_REQUESTED',
+          body: '<!-- dont-switch-my-sha -->\n## Unverified Action SHA Detected',
         },
       ],
     });

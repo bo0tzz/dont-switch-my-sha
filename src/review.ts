@@ -1,7 +1,7 @@
 import type { Octokit } from '@octokit/rest';
 import type { VerificationResult } from './types.js';
 
-const BOT_LOGIN = 'dont-switch-my-sha[bot]';
+const REVIEW_MARKER = '<!-- dont-switch-my-sha -->';
 
 export async function postOrDismissReview(
   octokit: Octokit,
@@ -33,7 +33,7 @@ async function dismissPreviousReview(
   });
 
   const botReview = reviews.find(
-    (r) => r.user?.login === BOT_LOGIN && r.state === 'CHANGES_REQUESTED',
+    (r) => r.state === 'CHANGES_REQUESTED' && r.body?.includes(REVIEW_MARKER),
   );
 
   if (botReview) {
@@ -56,7 +56,7 @@ async function postChangesRequested(
 ): Promise<void> {
   const n = unverified.length;
   const body =
-    `## Unverified Action SHA${n > 1 ? 's' : ''} Detected\n\n` +
+    `${REVIEW_MARKER}\n## Unverified Action SHA${n > 1 ? 's' : ''} Detected\n\n` +
     `Found ${n} action reference${n > 1 ? 's' : ''} with SHA${n > 1 ? 's' : ''} ` +
     `that could not be verified against the claimed ` +
     `${n > 1 ? 'repositories' : 'repository'}. See inline comments for details.`;
