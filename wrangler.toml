@@ -2,3 +2,8 @@ name = "dont-switch-my-sha"
 main = "src/index.ts"
 compatibility_date = "2026-03-28"
 compatibility_flags = ["nodejs_compat"]
+
+[observability]
+[observability.logs]
+enabled = true
+invocation_logs = true
