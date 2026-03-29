@@ -90,7 +90,8 @@ function buildWarning(result: VerificationResult): string {
     `that the commit is too new to be indexed.\n\n` +
     `[View this commit on GitHub](https://github.com/${repoRef}/commit/${sha}) — look ` +
     `for the banner: *"This commit does not belong to any branch on this repository, ` +
-    `and may belong to a fork outside of the repository."*`;
+    `and may belong to a fork outside of the repository."*\n\n` +
+    `[What is this?](https://dont-switch-my-sha.com)`;
 
   if (versionComment) {
     msg +=

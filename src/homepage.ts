@@ -114,6 +114,9 @@ export function getHomepage(): string {
         Learn more about this attack:
         <a href="https://www.vaines.org/posts/2026-03-24-the-comforting-lie-of-sha-pinning/">The Comforting Lie of SHA Pinning</a>
       </p>
+      <p>
+        <a href="https://github.com/bo0tzz/dont-switch-my-sha">Source on GitHub</a>
+      </p>
     </div>
   </div>
 </body>
