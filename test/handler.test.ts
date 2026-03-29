@@ -6,38 +6,38 @@ const SHA_BAD = 'b'.repeat(40);
 
 function createMockOctokit(options: {
   files?: Array<{ filename: string; patch?: string }>;
-  refs?: Array<{ ref: string; object: { sha: string; type: string } }>;
+  tags?: Array<{ commit: { sha: string } }>;
   searchCount?: number;
   existingReviews?: Array<{ id: number; user: { login: string }; state: string }>;
 }) {
   const {
     files = [],
-    refs = [],
+    tags = [],
     searchCount = 0,
     existingReviews = [],
   } = options;
 
+  const listFiles = Symbol('listFiles');
+  const listTags = Symbol('listTags');
+  const listBranches = Symbol('listBranches');
+
   return {
-    paginate: Object.assign(
-      vi.fn().mockResolvedValue(files),
-      {
-        iterator: vi.fn().mockImplementation(() => ({
-          async *[Symbol.asyncIterator]() {
-            yield { data: refs };
-          },
-        })),
-      },
-    ),
+    paginate: vi.fn().mockImplementation((endpoint: unknown) => {
+      if (endpoint === listFiles) return Promise.resolve(files);
+      if (endpoint === listTags) return Promise.resolve(tags);
+      if (endpoint === listBranches) return Promise.resolve([]);
+      return Promise.resolve([]);
+    }),
     rest: {
       pulls: {
-        listFiles: {},
+        listFiles,
         listReviews: vi.fn().mockResolvedValue({ data: existingReviews }),
         createReview: vi.fn().mockResolvedValue({}),
         dismissReview: vi.fn().mockResolvedValue({}),
       },
-      git: {
-        listMatchingRefs: {},
-        getTag: vi.fn().mockRejectedValue(new Error('not a tag')),
+      repos: {
+        listTags,
+        listBranches,
       },
       search: {
         commits: vi.fn().mockResolvedValue({ data: { total_count: searchCount } }),
@@ -65,9 +65,7 @@ describe('handlePullRequest', () => {
           patch: `@@ -1,3 +1,3 @@\n+      - uses: actions/checkout@${SHA_GOOD}`,
         },
       ],
-      refs: [
-        { ref: 'refs/tags/v4', object: { sha: SHA_GOOD, type: 'commit' } },
-      ],
+      tags: [{ commit: { sha: SHA_GOOD } }],
     });
 
     await handlePullRequest(octokit, 'owner', 'repo', 1);
@@ -83,7 +81,7 @@ describe('handlePullRequest', () => {
           patch: `@@ -1,3 +1,3 @@\n+      - uses: actions/checkout@${SHA_BAD}`,
         },
       ],
-      refs: [],
+      tags: [],
       searchCount: 0,
     });
 
@@ -110,9 +108,7 @@ describe('handlePullRequest', () => {
           patch: `@@ -1,3 +1,3 @@\n+      - uses: actions/checkout@${SHA_GOOD}`,
         },
       ],
-      refs: [
-        { ref: 'refs/tags/v4', object: { sha: SHA_GOOD, type: 'commit' } },
-      ],
+      tags: [{ commit: { sha: SHA_GOOD } }],
       existingReviews: [
         {
           id: 42,
@@ -141,7 +137,7 @@ describe('handlePullRequest', () => {
           patch: `@@ -1,3 +1,3 @@\n+      - uses: actions/checkout@${SHA_BAD} # v4.1.2`,
         },
       ],
-      refs: [],
+      tags: [],
       searchCount: 0,
     });
 

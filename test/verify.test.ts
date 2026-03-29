@@ -4,7 +4,6 @@ import type { ChangedAction } from '../src/types.js';
 
 const SHA_GOOD = 'a'.repeat(40);
 const SHA_BAD = 'b'.repeat(40);
-const SHA_TAG_OBJ = 'c'.repeat(40);
 
 function makeAction(overrides: Partial<ChangedAction> = {}): ChangedAction {
   return {
@@ -18,32 +17,22 @@ function makeAction(overrides: Partial<ChangedAction> = {}): ChangedAction {
 }
 
 function createMockOctokit(options: {
-  refs?: Array<{ ref: string; object: { sha: string; type: string } }>;
-  tagResolutions?: Record<string, string>;
+  tags?: Array<{ commit: { sha: string } }>;
+  branches?: Array<{ commit: { sha: string } }>;
   searchCount?: number;
 }) {
-  const { refs = [], tagResolutions = {}, searchCount = 0 } = options;
+  const { tags = [], branches = [], searchCount = 0 } = options;
 
   return {
-    paginate: {
-      iterator: vi.fn().mockImplementation(() => ({
-        async *[Symbol.asyncIterator]() {
-          yield { data: refs };
-        },
-      })),
-    },
+    paginate: vi.fn().mockImplementation((_endpoint: unknown) => {
+      if (_endpoint === mock.rest.repos.listTags) return Promise.resolve(tags);
+      if (_endpoint === mock.rest.repos.listBranches) return Promise.resolve(branches);
+      return Promise.resolve([]);
+    }),
     rest: {
-      git: {
-        listMatchingRefs: {},
-        getTag: vi.fn().mockImplementation(({ tag_sha }: { tag_sha: string }) => {
-          const commitSha = tagResolutions[tag_sha];
-          if (commitSha) {
-            return Promise.resolve({
-              data: { object: { sha: commitSha } },
-            });
-          }
-          return Promise.reject(new Error('tag not found'));
-        }),
+      repos: {
+        listTags: {},
+        listBranches: {},
       },
       search: {
         commits: vi.fn().mockResolvedValue({
@@ -52,14 +41,49 @@ function createMockOctokit(options: {
       },
     },
   } as any;
+
+  // Self-reference so the mock implementation can check endpoints
+  var mock: any;
+  mock = arguments[0];
+}
+
+// Build mock with proper self-reference
+function buildMockOctokit(options: {
+  tags?: Array<{ commit: { sha: string } }>;
+  branches?: Array<{ commit: { sha: string } }>;
+  searchCount?: number;
+}) {
+  const { tags = [], branches = [], searchCount = 0 } = options;
+
+  const listTags = Symbol('listTags');
+  const listBranches = Symbol('listBranches');
+
+  const octokit = {
+    paginate: vi.fn().mockImplementation((endpoint: unknown) => {
+      if (endpoint === listTags) return Promise.resolve(tags);
+      if (endpoint === listBranches) return Promise.resolve(branches);
+      return Promise.resolve([]);
+    }),
+    rest: {
+      repos: {
+        listTags,
+        listBranches,
+      },
+      search: {
+        commits: vi.fn().mockResolvedValue({
+          data: { total_count: searchCount },
+        }),
+      },
+    },
+  } as any;
+
+  return octokit;
 }
 
 describe('verifyActions', () => {
-  it('verifies a SHA matching a lightweight tag ref', async () => {
-    const octokit = createMockOctokit({
-      refs: [
-        { ref: 'refs/tags/v4.0.0', object: { sha: SHA_GOOD, type: 'commit' } },
-      ],
+  it('verifies a SHA matching a tag', async () => {
+    const octokit = buildMockOctokit({
+      tags: [{ commit: { sha: SHA_GOOD } }],
     });
 
     const results = await verifyActions(octokit, [makeAction()]);
@@ -69,26 +93,9 @@ describe('verifyActions', () => {
     expect(results[0].tier).toBe('ref');
   });
 
-  it('verifies a SHA matching a branch ref', async () => {
-    const octokit = createMockOctokit({
-      refs: [
-        { ref: 'refs/heads/main', object: { sha: SHA_GOOD, type: 'commit' } },
-      ],
-    });
-
-    const results = await verifyActions(octokit, [makeAction()]);
-
-    expect(results).toHaveLength(1);
-    expect(results[0].verified).toBe(true);
-    expect(results[0].tier).toBe('ref');
-  });
-
-  it('resolves annotated tags to find the commit SHA', async () => {
-    const octokit = createMockOctokit({
-      refs: [
-        { ref: 'refs/tags/v4.0.0', object: { sha: SHA_TAG_OBJ, type: 'tag' } },
-      ],
-      tagResolutions: { [SHA_TAG_OBJ]: SHA_GOOD },
+  it('verifies a SHA matching a branch', async () => {
+    const octokit = buildMockOctokit({
+      branches: [{ commit: { sha: SHA_GOOD } }],
     });
 
     const results = await verifyActions(octokit, [makeAction()]);
@@ -99,10 +106,8 @@ describe('verifyActions', () => {
   });
 
   it('falls back to search API when refs do not match', async () => {
-    const octokit = createMockOctokit({
-      refs: [
-        { ref: 'refs/tags/v3.0.0', object: { sha: 'd'.repeat(40), type: 'commit' } },
-      ],
+    const octokit = buildMockOctokit({
+      tags: [{ commit: { sha: 'd'.repeat(40) } }],
       searchCount: 1,
     });
 
@@ -115,8 +120,7 @@ describe('verifyActions', () => {
   });
 
   it('returns unverified when SHA is not found anywhere', async () => {
-    const octokit = createMockOctokit({
-      refs: [],
+    const octokit = buildMockOctokit({
       searchCount: 0,
     });
 
@@ -128,10 +132,8 @@ describe('verifyActions', () => {
   });
 
   it('deduplicates verification for the same owner/repo@sha', async () => {
-    const octokit = createMockOctokit({
-      refs: [
-        { ref: 'refs/tags/v4.0.0', object: { sha: SHA_GOOD, type: 'commit' } },
-      ],
+    const octokit = buildMockOctokit({
+      tags: [{ commit: { sha: SHA_GOOD } }],
     });
 
     const actions = [
@@ -144,21 +146,15 @@ describe('verifyActions', () => {
     expect(results).toHaveLength(2);
     expect(results[0].verified).toBe(true);
     expect(results[1].verified).toBe(true);
-    // paginate.iterator should only be called once (deduplication)
-    expect(octokit.paginate.iterator).toHaveBeenCalledTimes(1);
+    // paginate called once (tags matched, branches skipped) for one unique SHA
+    expect(octokit.paginate).toHaveBeenCalledTimes(1);
   });
 
   it('handles API errors gracefully (treats as unverified)', async () => {
     const octokit = {
-      paginate: {
-        iterator: vi.fn().mockImplementation(() => ({
-          async *[Symbol.asyncIterator]() {
-            throw new Error('API rate limit');
-          },
-        })),
-      },
+      paginate: vi.fn().mockRejectedValue(new Error('API rate limit')),
       rest: {
-        git: { listMatchingRefs: {} },
+        repos: { listTags: {}, listBranches: {} },
         search: {
           commits: vi.fn().mockRejectedValue(new Error('rate limit')),
         },

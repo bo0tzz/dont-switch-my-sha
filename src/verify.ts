@@ -48,39 +48,21 @@ async function checkRefs(
   sha: string,
 ): Promise<boolean> {
   try {
-    const annotatedTagShas: string[] = [];
+    // listTags and listBranches return commit SHAs directly
+    // (no annotated tag resolution needed)
+    const tags = await octokit.paginate(octokit.rest.repos.listTags, {
+      owner,
+      repo,
+      per_page: 100,
+    });
+    if (tags.some((tag) => tag.commit.sha === sha)) return true;
 
-    for await (const response of octokit.paginate.iterator(
-      octokit.rest.git.listMatchingRefs,
-      { owner, repo, ref: '', per_page: 100 },
-    )) {
-      for (const ref of response.data) {
-        // Direct match: lightweight tags, branches
-        if (ref.object.sha === sha) return true;
-        // Collect annotated tags for resolution
-        if (ref.object.type === 'tag') {
-          annotatedTagShas.push(ref.object.sha);
-        }
-      }
-    }
-
-    // Resolve annotated tags to their underlying commit SHAs
-    if (annotatedTagShas.length > 0) {
-      const results = await Promise.allSettled(
-        annotatedTagShas.map((tagSha) =>
-          octokit.rest.git.getTag({ owner, repo, tag_sha: tagSha }),
-        ),
-      );
-
-      for (const result of results) {
-        if (
-          result.status === 'fulfilled' &&
-          result.value.data.object.sha === sha
-        ) {
-          return true;
-        }
-      }
-    }
+    const branches = await octokit.paginate(octokit.rest.repos.listBranches, {
+      owner,
+      repo,
+      per_page: 100,
+    });
+    if (branches.some((branch) => branch.commit.sha === sha)) return true;
 
     return false;
   } catch {
