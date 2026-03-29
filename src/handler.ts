@@ -11,6 +11,14 @@ export async function handlePullRequest(
 ): Promise<void> {
   const actions = await getChangedActions(octokit, owner, repo, pullNumber);
 
+  console.log(JSON.stringify({
+    event: 'webhook_handled',
+    owner,
+    repo,
+    pullNumber,
+    actionsFound: actions.length,
+  }));
+
   if (actions.length === 0) {
     // No workflow SHA changes — dismiss any previous review if present
     await postOrDismissReview(octokit, owner, repo, pullNumber, []);
@@ -18,5 +26,17 @@ export async function handlePullRequest(
   }
 
   const results = await verifyActions(octokit, actions);
+
+  for (const result of results) {
+    console.log(JSON.stringify({
+      event: result.verified ? 'sha_verified' : 'sha_unverified',
+      owner,
+      repo,
+      actionRepo: `${result.action.owner}/${result.action.repo}`,
+      sha: result.action.sha,
+      tier: result.tier ?? null,
+    }));
+  }
+
   await postOrDismissReview(octokit, owner, repo, pullNumber, results);
 }
